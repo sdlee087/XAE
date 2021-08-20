@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 
-from .util import inc_avg, save_sample_images
+from .util import inc_avg, save_sample_images, sigmoid
 from . import dataset, sampler
 from ._base_model import AE_abstract, AE_adv_abstract
 

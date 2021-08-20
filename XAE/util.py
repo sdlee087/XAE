@@ -22,6 +22,9 @@ def init_params(model):
             nn.init.trunc_normal_(p, std = 0.01, a = -0.02, b = 0.02)
         else:
             nn.init.uniform_(p, 0.1, 0.2)
+            
+def sigmoid(x):
+    return 1 / (1 +np.exp(-x))
 
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
@@ -32,7 +35,7 @@ def save_sample_images(save_path, epoch, img_list):
     for i in range(64):
         plt.subplot(8,8,i+1)
         if img_list.shape[1] == 1:
-            plt.imshow(np.transpose(img_list[i,:,:,:], (1,2,0)), cmap = 'gray')
+            plt.imshow(np.transpose(img_list[i,:,:,:], (1,2,0))[:,:,0], cmap = 'gray')
         else:
             plt.imshow(np.transpose(img_list[i,:,:,:], (1,2,0)))
         plt.axis('off')
