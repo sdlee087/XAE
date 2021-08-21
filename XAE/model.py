@@ -404,20 +404,26 @@ class VAE_abstract(AE_abstract):
                 recon = self.decode(self.reparameterize(mu, logvar)).detach()
                 
                 if len(self.tensorboard_dir) > 0:
-                    self.writer.add_scalar('test/MSE', test_loss.avg, epoch)
+                    self.writer.add_scalar('test/BCE', test_loss.avg, epoch)
 
                     # Reconstruction
                     self.writer.add_images('reconstruction', (np.concatenate((x.to('cpu').numpy()[0:16], sigmoid(recon.to('cpu').numpy())[0:16]))), epoch)
+                    
+                    # Sample Generation
+                    test_dec = self.dec(prior_z).detach().to('cpu').numpy()
+                    self.writer.add_images('generation', sigmoid(test_dec)[0:16])
+                    
                     self.writer.flush()
                 
                 if len(self.save_img_path) > 0:
+                    # Reconstruction
                     save_sample_images('%s/recon' % self.save_img_path, epoch, np.concatenate((x.to('cpu').numpy()[0:32], sigmoid(recon.to('cpu').numpy())[0:32])))
                     plt.close()
-                    if self.lamb > 0:
-                        # Sample Generation
-                        test_dec = self.dec(prior_z).detach().to('cpu').numpy()
-                        save_sample_images('%s/gen' % self.save_img_path, epoch, sigmoid(test_dec)[0:64])
-                        plt.close()
+                    
+                    # Sample Generation
+                    test_dec = self.dec(prior_z).detach().to('cpu').numpy()
+                    save_sample_images('%s/gen' % self.save_img_path, epoch, sigmoid(test_dec)[0:64])
+                    plt.close()
                         
                 if self.save_best:
                     obj = test_loss.avg
