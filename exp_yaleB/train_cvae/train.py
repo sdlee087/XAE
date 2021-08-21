@@ -6,16 +6,16 @@ import torch.nn as nn
 from XAE.model import CVAE_abstract
 from XAE.logging_daily import logging_daily
 from XAE.util import init_params
-
-class CVAE_MNIST(CVAE_abstract):
+    
+class CVAE_YaleB(CVAE_abstract):
     def __init__(self, cfg, log, device = 'cpu', verbose = 1):
-        super(CVAE_MNIST, self).__init__(cfg, log, device, verbose)
+        super(CVAE_YaleB, self).__init__(cfg, log, device, verbose)
         self.d = 64
         d = self.d
         self.embed_data = nn.Identity().to(device)
         self.embed_condition = nn.Sequential(
-            nn.Linear(10, 28*28),
-            nn.Unflatten(1, (1,28,28)),
+            nn.Linear(self.y_dim, 128*128),
+            nn.Unflatten(1, (1,128,128)),
         ).to(device)
         self.enc = nn.Sequential(
             nn.Conv2d(2, d, kernel_size = 4, stride = 2, padding = 1, bias = False),
@@ -27,30 +27,33 @@ class CVAE_MNIST(CVAE_abstract):
             nn.Conv2d(2*d, 4*d, kernel_size = 4, stride = 2, padding = 1, bias = False),
             nn.ReLU(True),
 
-            nn.Conv2d(4*d, 8*d, kernel_size = 3, stride = 2, padding = 1, bias = False),
+            nn.Conv2d(4*d, 8*d, kernel_size = 4, stride = 2, padding = 1, bias = False),
             nn.ReLU(True),
             
             nn.Flatten(),
             ).to(device)
 
-        self.mu = nn.Linear(4*8*d, self.z_dim).to(device)
-        self.logvar = nn.Linear(4*8*d, self.z_dim).to(device)
+        self.mu = nn.Linear(8*8*8*d, self.z_dim).to(device)
+        self.logvar = nn.Linear(8*8*8*d, self.z_dim).to(device)
                                 
         self.dec = nn.Sequential(
             nn.Linear(self.z_dim + self.y_dim, 512, bias = False),
             nn.ReLU(True),
             
-            nn.Linear(512, 49*8*d),
-            nn.Unflatten(1, (8*d, 7, 7)),
+            nn.Linear(512, 16*16*8*d),
+            nn.Unflatten(1, (8*d, 16, 16)),
             
             nn.ConvTranspose2d(8*d, 4*d, kernel_size = 4, stride = 2, padding = 1, bias = False),
             nn.ReLU(True),
             
             nn.ConvTranspose2d(4*d, 2*d, kernel_size = 4, stride = 2, padding = 1, bias = False),
             nn.ReLU(True),
+
+            nn.ConvTranspose2d(2*d, d, kernel_size = 4, stride = 2, padding = 1, bias = False),
+            nn.ReLU(True),
             
             # reconstruction
-            nn.Conv2d(2*d, 1, kernel_size = 3, padding = 1),
+            nn.Conv2d(d, 1, kernel_size = 3, padding = 1),
             
             ).to(device)
         init_params(self.embed_data)

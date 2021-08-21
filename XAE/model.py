@@ -459,14 +459,27 @@ class VAE_abstract(AE_abstract):
             self.writer.close()
         
 class CVAE_abstract(VAE_abstract):
-    def __init__(self, network_info, log, device = 'cpu', verbose = 1):
-        super(CVAE_abstract, self).__init__(network_info, log, device, verbose)
+    def __init__(self, cfg, log, device = 'cpu', verbose = 1):
+        super(CVAE_abstract, self).__init__(cfg, log, device, verbose)
+        
+        data_class = getattr(dataset, cfg['train_info']['train_data'])
+        self.train_data =  data_class(cfg['path_info']['data_home'], train = True, label = True)
+        self.test_data = data_class(cfg['path_info']['data_home'], train = False, label = True)
+        if cfg['train_info'].getboolean('replace'):
+            it = int(cfg['train_info']['iter_per_epoch'])
+            train_sampler = torch.utils.data.RandomSampler(self.train_data, replacement = True, num_samples = self.batch_size * it)
+            self.train_generator = torch.utils.data.DataLoader(self.train_data, self.batch_size, num_workers = 5, sampler = train_sampler, pin_memory=True)
+        else:
+            self.train_generator = torch.utils.data.DataLoader(self.train_data, self.batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=True)
+
+        self.test_generator = torch.utils.data.DataLoader(self.test_data, self.batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=True)
+        
         self.y_sampler = getattr(sampler, cfg['train_info']['y_sampler']) # generate prior
         self.y_dim = int(cfg['train_info']['y_dim'])
 
         # Abstract part
         self.embed_data = nn.Identity()
-        self.embed_condition = nn.Identity
+        self.embed_condition = nn.Identity()
         
     def encode(self, x, y):
         if self.prob_enc:
@@ -581,7 +594,7 @@ class CVAE_abstract(VAE_abstract):
                 # Additional test set
                 data, condition = next(iter(self.test_generator))
 
-                x = data.to(self.device)
+                x = data.to(self.device)*.5+.5
                 y = condition.to(self.device)
                 prior_z = self.generate_prior(len(data))
                 fake_latent = torch.cat((self.encode(x, y), y), dim = 1).detach()
@@ -594,7 +607,7 @@ class CVAE_abstract(VAE_abstract):
                     self.writer.add_images('reconstruction', (np.concatenate((x.to('cpu').numpy()[0:16], sigmoid(recon.to('cpu').numpy())[0:16]))), epoch)
                     
                     # Sample Generation
-                    test_dec = self.dec(prior_z).detach().to('cpu').numpy()
+                    test_dec = self.dec(torch.cat((prior_z,y), dim=1)).detach().to('cpu').numpy()
                     self.writer.add_images('generation', sigmoid(test_dec)[0:32])
                     
                     self.writer.flush()
@@ -605,7 +618,7 @@ class CVAE_abstract(VAE_abstract):
                     plt.close()
                     
                     # Sample Generation
-                    test_dec = self.dec(prior_z).detach().to('cpu').numpy()
+                    test_dec = self.dec(torch.cat((prior_z,y), dim=1)).detach().to('cpu').numpy()
                     save_sample_images('%s/gen' % self.save_img_path, epoch, sigmoid(test_dec)[0:64])
                     plt.close()
                 
