@@ -411,7 +411,7 @@ class VAE_abstract(AE_abstract):
                     
                     # Sample Generation
                     test_dec = self.dec(prior_z).detach().to('cpu').numpy()
-                    self.writer.add_images('generation', sigmoid(test_dec)[0:16])
+                    self.writer.add_images('generation', sigmoid(test_dec)[0:32])
                     
                     self.writer.flush()
                 
