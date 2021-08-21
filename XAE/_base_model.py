@@ -38,8 +38,8 @@ class AE_abstract(nn.Module):
         self.z_dim = int(cfg['train_info']['z_dim'])
 
         data_class = getattr(dataset, cfg['train_info']['train_data'])
-        self.train_data =  data_class(cfg['path_info']['data_home'], train = True)
-        self.test_data = data_class(cfg['path_info']['data_home'], train = False)
+        self.train_data =  data_class(cfg['path_info']['data_home'], train = True, label = False)
+        self.test_data = data_class(cfg['path_info']['data_home'], train = False, label = False)
         self.prob_enc = cfg['train_info'].getboolean('prob_enc')
 
         self.batch_size = int(cfg['train_info']['batch_size'])
