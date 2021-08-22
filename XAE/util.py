@@ -32,7 +32,7 @@ def save_sample_images(save_path, epoch, img_list):
     for i in range(64):
         plt.subplot(8,8,i+1)
         if img_list.shape[1] == 1:
-            plt.imshow(np.transpose(img_list[i,:,:,:], (1,2,0)), cmap = 'gray')
+            plt.imshow(np.transpose(img_list[i,:,:,:], (1,2,0))[:,:,0], cmap = 'gray')
         else:
             plt.imshow(np.transpose(img_list[i,:,:,:], (1,2,0)))
         plt.axis('off')
