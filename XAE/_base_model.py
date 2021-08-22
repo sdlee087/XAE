@@ -115,7 +115,7 @@ class AE_abstract(nn.Module):
         torch.save(self.state_dict(), dir)
 
     def load(self, dir = None):
-        if dir in None:
+        if dir is None:
             self.load_state_dict(torch.load(self.save_path))
         self.load_state_dict(torch.load(dir))
 
