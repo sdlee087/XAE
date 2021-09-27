@@ -41,8 +41,10 @@ class WAE_MMD_celebA(WAE_MMD_abstract):
             nn.ReLU(True),
             
             nn.Flatten(),
-            nn.Linear(4*16*d, self.z_dim),
             ).to(device)
+        self.mu = nn.Linear(4*16*d, self.z_dim)
+        self.logvar = nn.Linear(4*16*d, self.z_dim)
+
         self.dec = nn.Sequential(
             
             nn.Linear(self.z_dim, 16*16*d),

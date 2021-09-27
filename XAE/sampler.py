@@ -17,3 +17,7 @@ def multinomial(x, y, device = 'cpu'):
 def generate_yale_condition(x, y, device = 'cpu'): 
     # For azimuth and elevation in eYaleFace data
     return torch.cat((multinomial(x, 28, device), multinomial(x, 10, device), unif(x, 1, -130/180, 130/180, device), unif(x, 1, -40/90, 1, device)), axis = 1)
+
+def embedded_yale_condition(x, y, device = 'cpu'): 
+    # For azimuth and elevation in eYaleFace data
+    return torch.cat((gaus(x, y-2, device), unif(x, 1, -130/180, 130/180, device), unif(x, 1, -40/90, 1, device)), axis = 1)

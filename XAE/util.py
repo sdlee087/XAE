@@ -23,6 +23,12 @@ def init_params(model):
         else:
             nn.init.uniform_(p, 0.1, 0.2)
 
+def reparameterize(mu, logvar):
+        # reparameterization trick for probablistic encoder
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return mu + eps*std
+
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']

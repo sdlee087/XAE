@@ -17,7 +17,7 @@ class ToyDataset(torch.utils.data.Dataset):
         return self.data[idx]
 
 class CelebA(torch.utils.data.Dataset):
-    def __init__(self, data_home, train = True):
+    def __init__(self, data_home, train = True, label = False):
         self.data_home = '%s/img_align_celeba' % data_home
         if train:
             self.x_list = np.load('%s/x_list_train.npy' % data_home)
