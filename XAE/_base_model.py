@@ -40,7 +40,7 @@ class XAE_abstract(nn.Module):
         labeled = cfg['train_info'].getboolean('train_data_label')
         self.train_data =  data_class(cfg['path_info']['data_home'], train = True, label = labeled)
         self.test_data = data_class(cfg['path_info']['data_home'], train = False, label = labeled)
-        self.prob_enc = cfg['train_info'].getboolean('prob_enc')
+        # self.prob_enc = cfg['train_info'].getboolean('prob_enc')
 
         self.batch_size = int(cfg['train_info']['batch_size'])
         self.validate_batch = cfg['train_info'].getboolean('validate')
@@ -556,10 +556,10 @@ class CXAE_abstract(XAE_abstract):
         # Abstract part
         self.embed_data = nn.Identity()
         self.embed_condition = nn.Identity()
-        self.embed_label = nn.Identity()
+        # self.embed_label = nn.Identity()
 
     def encode(self, x, y):
-        return torch.cat((self.enc(torch.cat((self.embed_data(x), self.embed_condition(y)), dim = 1)), self.embed_label(y)), dim = 1)
+        return torch.cat((self.enc(torch.cat((self.embed_data(x), self.embed_condition(y)), dim = 1)), self.embed_condition(y)), dim = 1)
 
     def forward(self, x, y):
         return self.decode(self.encode(x,y))
@@ -795,10 +795,10 @@ class CXAE_adv_abstract(XAE_adv_abstract):
         # Abstract part
         self.embed_data = nn.Identity()
         self.embed_condition = nn.Identity()
-        self.embed_label = nn.Identity()
+        # self.embed_label = nn.Identity()
 
     def encode(self, x, y):
-        return torch.cat((self.enc(torch.cat((self.embed_data(x), self.embed_condition(y)), dim = 1)), self.embed_label(y)), dim = 1)
+        return torch.cat((self.enc(torch.cat((self.embed_data(x), self.embed_condition(y)), dim = 1)), self.embed_condition(y)), dim = 1)
 
     def forward(self, x, y):
         return self.decode(self.encode(x,y))
