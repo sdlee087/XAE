@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
+from .sampler import multinomial, gaus
+
 class inc_avg():
     def __init__(self):
         self.avg = 0.0
@@ -32,10 +34,69 @@ def reparameterize(mu, logvar):
 class prob_enc(nn.Module):
     def __init__(self, n, m):
         super(prob_enc, self).__init__()
-        self.mu = nn.Linear(n, m)
-        self.logvar = nn.Linear(n, m)
+        self.mu = nn.Linear(5*n, m)
+        self.logvar = nn.Linear(5*n, m)
     def forward(self, x):
         return reparameterize(self.mu(x), self.logvar(x))
+
+class prob_mixture_enc(nn.Module):
+    def __init__(self, n, m, k=1):
+        super(prob_mixture_enc, self).__init__()
+        self.k = k
+        self.n = n
+        self.m = m
+        self.code = torch.eye(k)
+        self.mu = nn.Linear(n*k, m, bias = False)
+        self.logvar = nn.Linear(n*k, m, bias = False)
+
+    def to(self, *args, **kwargs):
+        self = super().to(*args, **kwargs)
+        self.code = self.code.to(*args, **kwargs)
+        return self
+
+    def sample_multi(self, n):
+        return self.code[torch.randint(self.k,(n,))].repeat(1, self.n)
+
+    def initialize(self):
+        self.logvar.weight.data.fill_(-2)
+        self.mu.weight.data = torch.repeat_interleave(gaus(self.m, self.n), self.k, dim = 1)
+
+    def forward(self, x):
+        # Expect input from multinomial distribution
+        n = len(x)
+        xx = torch.repeat_interleave(x, self.k, dim = 1) * self.sample_multi(n)
+        return reparameterize(self.mu(xx), self.logvar(xx))
+
+class MixedLayer(nn.Module):
+    # Linear map mapping p -> q, r -> s, i -> i
+    def __init__(self, p, q, r, s, i, prob = False, mode = 1):
+        super(MixedLayer, self).__init__()
+        self.p = p
+        self.q = q
+        self.r = r
+        self.s = s
+        self.i = i
+        self.prob = prob
+        if self.prob:
+            self.mu1 = prob_mixture_enc(p, q, mode)
+            self.mu2 = prob_mixture_enc(r, s, mode)
+        else:
+            self.mu1 = nn.Linear(p, q)
+            self.mu2 = nn.Linear(r, s)
+    def to(self, *args, **kwargs):
+        self = super().to(*args, **kwargs)
+        self.mu1 = self.mu1.to(*args, **kwargs)
+        self.mu2 = self.mu2.to(*args, **kwargs)
+        return self
+    def initialize(self):
+        if self.prob:
+            self.mu1.initialize()
+            self.mu2.initialize()
+        else:
+            init_params(self.mu1)
+            init_params(self.mu2)
+    def forward(self, x):
+        return torch.cat((self.mu1(x[:, 0:self.p]), self.mu2(x[:, self.p:(self.p + self.r)]), x[:, (self.p + self.r):(self.p + self.r + self.i)]), axis = 1)
 
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:

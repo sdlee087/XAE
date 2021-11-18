@@ -11,7 +11,7 @@ try:
 except ImportError:
     pass
 
-from .util import inc_avg, save_sample_images, reparameterize
+from .util import inc_avg, save_sample_images
 from . import dataset, sampler
 
 import numpy as np
@@ -38,21 +38,22 @@ class XAE_abstract(nn.Module):
 
         data_class = getattr(dataset, cfg['train_info']['train_data'])
         labeled = cfg['train_info'].getboolean('train_data_label')
-        self.train_data =  data_class(cfg['path_info']['data_home'], train = True, label = labeled)
-        self.test_data = data_class(cfg['path_info']['data_home'], train = False, label = labeled)
-        # self.prob_enc = cfg['train_info'].getboolean('prob_enc')
-
-        self.batch_size = int(cfg['train_info']['batch_size'])
         self.validate_batch = cfg['train_info'].getboolean('validate')
-        if cfg['train_info'].getboolean('replace'):
-            it = int(cfg['train_info']['iter_per_epoch'])
-            train_sampler = torch.utils.data.RandomSampler(self.train_data, replacement = True, num_samples = self.batch_size * it)
-            self.train_generator = torch.utils.data.DataLoader(self.train_data, self.batch_size, num_workers = 5, sampler = train_sampler, pin_memory=True)
-        else:
-            self.train_generator = torch.utils.data.DataLoader(self.train_data, self.batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=True)
+        try:
+            self.train_data =  data_class(cfg['path_info']['data_home'], train = True, label = labeled)
+            self.test_data = data_class(cfg['path_info']['data_home'], train = False, label = labeled)
 
-        self.test_generator = torch.utils.data.DataLoader(self.test_data, self.batch_size, num_workers = 5, shuffle = False, pin_memory=True, drop_last=True)
-        
+            self.batch_size = int(cfg['train_info']['batch_size'])
+            if cfg['train_info'].getboolean('replace'):
+                it = int(cfg['train_info']['iter_per_epoch'])
+                train_sampler = torch.utils.data.RandomSampler(self.train_data, replacement = True, num_samples = self.batch_size * it)
+                self.train_generator = torch.utils.data.DataLoader(self.train_data, self.batch_size, num_workers = 5, sampler = train_sampler, pin_memory=True)
+            else:
+                self.train_generator = torch.utils.data.DataLoader(self.train_data, self.batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=True)
+            self.test_generator = torch.utils.data.DataLoader(self.test_data, self.batch_size, num_workers = 5, shuffle = False, pin_memory=True, drop_last=True)
+        except KeyError:
+            pass
+            
         self.save_best = cfg['train_info'].getboolean('save_best')
         self.save_path = cfg['path_info']['save_path']
         self.tensorboard_dir = cfg['path_info']['tb_logs']
@@ -64,6 +65,7 @@ class XAE_abstract(nn.Module):
             self.encoder_pretrain_batch_size = int(cfg['train_info']['encoder_pretrain_batch_size'])
             self.encoder_pretrain_step = int(cfg['train_info']['encoder_pretrain_max_step'])
             self.pretrain_generator = torch.utils.data.DataLoader(self.train_data, self.encoder_pretrain_batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=True)
+
         
         self.lr = float(cfg['train_info']['lr'])
         self.beta1 = float(cfg['train_info']['beta1'])
