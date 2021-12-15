@@ -3,14 +3,14 @@ sys.path.append('/'.join(os.getcwd().split('/')[:-2]))
 import torch
 import torch.nn as nn
 
-from XAE.model import SSWAE_MMD_abstract
+from XAE.model import SSWAE_HSIC_dev
 from XAE.logging_daily import logging_daily
 from XAE.sampler import gaus
 from XAE.util import init_params, prob_mixture_enc
 
-class SSWAE_MMD_MNIST(SSWAE_MMD_abstract):
+class SSWAE_HSIC_MNIST(SSWAE_HSIC_dev):
     def __init__(self, cfg, log, device = 'cpu', verbose = 1):
-        super(SSWAE_MMD_MNIST, self).__init__(cfg, log, device, verbose)
+        super(SSWAE_HSIC_MNIST, self).__init__(cfg, log, device, verbose)
         self.d = 64
         d = self.d
         
@@ -33,10 +33,16 @@ class SSWAE_MMD_MNIST(SSWAE_MMD_abstract):
 
             nn.Flatten(),
         ).to(device)
-        # self.embed_condition = nn.Sequential(
-        #     nn.Linear(10, 7*7),
-        #     nn.Unflatten(1, (1,7*7)),
-        # ).to(device)
+
+        self.embed_condition = nn.Sequential(
+            nn.Linear(49*2*d, d),
+            nn.BatchNorm1d(d),
+            nn.ReLU(True),
+
+            nn.Linear(d, self.y_dim),
+
+            nn.Softmax(dim = 1),
+        ).to(device)
         
         self.enc = nn.Sequential(
             nn.Linear(49*2*d, d),
@@ -45,20 +51,9 @@ class SSWAE_MMD_MNIST(SSWAE_MMD_abstract):
 
             nn.Linear(d, self.z_dim)
             ).to(device)
-
-        self.enc2 = nn.Sequential(
-            nn.Linear(49*2*d, d),
-            nn.BatchNorm1d(d),
-            nn.ReLU(True),
-
-            nn.Linear(d, self.yz_dim)
-            ).to(device)
-
-        mode = 10
-        self.enc_c = prob_mixture_enc(self.y_dim - 1, self.yz_dim, mode).to(device)
         
         self.dec = nn.Sequential(
-            nn.Linear(self.yz_dim + self.z_dim, 49*2*d),
+            nn.Linear(self.y_dim + self.z_dim, 49*2*d),
             nn.Unflatten(1, (2*d, 7, 7)),
             
             nn.ConvTranspose2d(2*d, d, kernel_size = 4, stride = 2, padding = 1, bias = False),
@@ -79,32 +74,36 @@ class SSWAE_MMD_MNIST(SSWAE_MMD_abstract):
             
             ).to(device)
 
-        ff = 10
-        self.dec_c = nn.Sequential(
-            nn.Linear(self.yz_dim, ff),
-            nn.BatchNorm1d(ff),
+        self.disc = nn.Sequential(
+            nn.Linear(self.z_dim, d),
             nn.ReLU(True),
-            nn.Linear(ff, ff),
-            nn.BatchNorm1d(ff),
-            nn.ReLU(True),
-            nn.Linear(ff, self.y_dim),
 
-            # nn.Sigmoid()
+            nn.Linear(d, d),
+            nn.ReLU(True),
+
+            nn.Linear(d, d),
+            nn.ReLU(True),
+
+            nn.Linear(d, d),
+            nn.ReLU(True),
+
+            nn.Linear(d, d),
+            nn.ReLU(True),
+
+            nn.Linear(d, 1),
             ).to(device)
         
-        self.encoder_trainable = [self.enc, self.enc2, self.enc_c, self.embed_data]
-        self.decoder_trainable = [self.dec, self.dec_c]
+        self.encoder_trainable = [self.enc, self.embed_data, self.embed_condition]
+        self.decoder_trainable = [self.dec]
+        self.discriminator_trainable = [self.disc]
 
         for net in self.encoder_trainable:
             init_params(net)
         for net in self.decoder_trainable:
             init_params(net)
-        
-        self.enc_c.initialize()
-        self.enc_c.to(device)
+        for net in self.discriminator_trainable:
+            init_params(net)
 
-    def forward(self, x, y):
-        return self.decode(torch.cat((self.encode(x,y), self.embed_label(y)), dim = 1))
 
 if __name__ == '__main__':
     is_cuda = torch.cuda.is_available()
