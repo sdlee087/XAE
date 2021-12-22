@@ -56,9 +56,9 @@ class XAE_abstract(nn.Module):
         
         self.encoder_pretrain = cfg['train_info'].getboolean('encoder_pretrain')
         if self.encoder_pretrain:
-            self.encoder_pretrain_batch_size = int(cfg['train_info']['encoder_pretrain_batch_size'])
-            self.encoder_pretrain_step = int(cfg['train_info']['encoder_pretrain_max_step'])
-            self.pretrain_generator = torch.utils.data.DataLoader(self.train_data, self.encoder_pretrain_batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=True)
+            # self.encoder_pretrain_batch_size = int(cfg['train_info']['encoder_pretrain_batch_size'])
+            self.encoder_pretrain_step = int(cfg['train_info']['encoder_pretrain_step'])
+            # self.pretrain_generator = torch.utils.data.DataLoader(self.train_data, self.encoder_pretrain_batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=True)
 
         
         self.lr = float(cfg['train_info']['lr'])

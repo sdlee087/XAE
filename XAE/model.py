@@ -284,7 +284,7 @@ class SSWAE_HSIC_dev(CWAE_GAN_abstract):
     def k(self, x, y, diag = True):
         stat = 0.
         for scale in [.1, .2, .5, 1., 2., 5., 10.]:
-            C = scale*2*self.z_dim*2
+            C = scale*2*self.y_dim*2
             kernel = (C/(C + (x.unsqueeze(0) - y.unsqueeze(1)).pow(2).sum(dim = 2)))
             if diag:
                 stat += kernel.sum()
@@ -359,6 +359,88 @@ class SSWAE_HSIC_dev(CWAE_GAN_abstract):
         hsic = self.hsic(x, z)
 
         return gan, mmd, hsic
+
+    def pretrain_encoder(self):
+        for net in self.pretrain_freeze:
+            for p in net.parameters():
+                p.requires_grad = False
+
+        optimizer_main = optim.Adam(sum([list(net.parameters()) for net in self.encoder_trainable], []) + sum([list(net.parameters()) for net in self.decoder_trainable], []), lr = self.lr, betas = (self.beta1, 0.999))
+        optimizer_adv = optim.Adam(sum([list(net.parameters()) for net in self.discriminator_trainable], []), lr = self.lr_adv, betas = (self.beta1_adv, 0.999))
+
+        self.train_data = self.data_class(self.data_home, train = True, label = self.labeled, portion = self.portion)
+        pretrain_generator = torch.utils.data.DataLoader(self.train_data, self.batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=True)
+
+        trep = len(pretrain_generator)
+        ftrep = len(str(trep))
+        fep = len(str(self.encoder_pretrain_step))
+        
+        self.log.info('------------------------------------------------------------')
+        self.log.info('Pretraining Start!')
+        
+        for epoch in range(self.encoder_pretrain_step):
+            train_loss_main = inc_avg()
+            train_loss_penalty = inc_avg()
+            train_loss_penalty2 = inc_avg()
+            train_loss_penalty3 = inc_avg()
+
+            for i, (data, condition) in enumerate(pretrain_generator):
+                n = len(data)
+                prior_z = self.generate_prior(n)
+
+                if self.lamb > 0:
+                    for net in self.discriminator_trainable:
+                        net.zero_grad()
+
+                    x = data.to(self.device)
+                    y = condition.to(self.device)
+                    fake_latent = self.encode(x)[:,self.y_dim:]
+
+                    adv = self.adv_loss(prior_z, fake_latent)
+                    obj_adv = self.lamb * adv
+                    obj_adv.backward()
+                    optimizer_adv.step()
+
+                for net in self.encoder_trainable:
+                    net.zero_grad()
+                for net in self.decoder_trainable:
+                    net.zero_grad()
+
+                x = data.to(self.device)
+                y = condition.to(self.device)
+                valid_y = y.sum(dim = 1).ge(0.5)
+                # mask_y = y.sum(dim = 1).unsqueeze(1).repeat(1,self.y_dim).ge(0.5)
+                fake_latent = self.encode(x)
+                recon = self.decode(fake_latent)
+                loss = self.main_loss(x, recon)
+
+                if self.lamb > 0:
+                    # gan, mmd, hsic = self.penalty_loss_mask(fake_latent, y, mask_y)
+                    gan, mmd, hsic = self.penalty_loss_mask(fake_latent, y, valid_y)
+                    obj = loss + self.lamb*gan + self.lamb_mmd*mmd + self.lamb_hsic*hsic
+                else:
+                    obj = loss
+
+                obj.backward()
+                optimizer_main.step()
+
+                train_loss_main.append(loss.item(), n)
+                if self.lamb > 0:
+                    train_loss_penalty.append(gan.item(), n)
+                    train_loss_penalty2.append(mmd.item(), n)
+                    train_loss_penalty3.append(hsic.item(), n)
+
+                pp = f"[{i+1:0{ftrep}}/{trep}]  loss: {train_loss_main.avg:.4f}  D1: {train_loss_penalty.avg:.4f}  "
+                pp += f"D2: {train_loss_penalty2.avg:.4f}  D3: {train_loss_penalty3.avg:.4f}"
+                print(pp, end = '\r')
+
+            pp = f"[{epoch + 1:0{fep}}/{self.encoder_pretrain_step}]  loss: {train_loss_main.avg:.6e}  "
+            pp += f"D: {train_loss_penalty.avg:.6e}  D2: {train_loss_penalty2.avg:.6e}  D3: {train_loss_penalty3.avg:.6e}"
+            self.log.info(pp)
+
+        for net in self.pretrain_freeze:
+            for p in net.parameters():
+                p.requires_grad = True
 
     def train(self, resume = False):
         train_main_list = []
@@ -497,7 +579,10 @@ class SSWAE_HSIC_dev(CWAE_GAN_abstract):
                     prior_z = self.generate_prior(n)
                     # test without label
                     x = data.to(self.device)
-                    y = condition.to(self.device)
+                    if self.y_dim != condition.shape[1]:
+                        y = self.y_sampler(n, self.y_dim, self.device)
+                    else:
+                        y = condition.to(self.device)
                     fake_latent = self.encode(x)
                     recon = self.decode(fake_latent)
                     loss1 = self.main_loss(x, recon)
@@ -529,6 +614,10 @@ class SSWAE_HSIC_dev(CWAE_GAN_abstract):
                 prior_z = self.generate_prior(n)
                 x = data.to(self.device)
                 y = condition.to(self.device)
+                if self.y_dim != condition.shape[1]:
+                    y = self.y_sampler(n, self.y_dim, self.device)
+                else:
+                    y = condition.to(self.device)
                 fake_latent = self.encode(x)
                 recon = self.decode(fake_latent)
 
