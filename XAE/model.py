@@ -1158,10 +1158,10 @@ class SSWAE_HSIC_dev2(CWAE_GAN_abstract):
                 scheduler_main.load_state_dict(checkpoint['scheduler_main'])
                 scheduler_adv.load_state_dict(checkpoint['scheduler_adv'])
 
-        self.train_data = self.data_class(self.data_home, train = True, label = self.labeled, portion = self.portion)
+        self.train_data = self.data_class(self.data_home, train = True, label = self.labeled, aux = [self.labeled_class, []])
         self.train_generator = torch.utils.data.DataLoader(self.train_data, self.batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=True)
 
-        self.test_data = self.data_class(self.data_home, train = False, label = self.labeled)
+        self.test_data = self.data_class(self.data_home, train = False, label = self.labeled, aux = [self.labeled_class, []])
         self.test_generator = torch.utils.data.DataLoader(self.test_data, self.batch_size, num_workers = 5, shuffle = True, pin_memory=True, drop_last=False)
 
         trep = len(self.train_generator)
