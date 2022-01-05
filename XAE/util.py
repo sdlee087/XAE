@@ -39,6 +39,16 @@ class prob_enc(nn.Module):
     def forward(self, x):
         return reparameterize(self.mu(x), self.logvar(x))
 
+class prob_gauss_mix(nn.Module):
+    def __init__(self, n, m, eps):
+        super(prob_gauss_mix, self).__init__()
+        self.mu = nn.Linear(n, m, bias = False)
+        self.eps = eps
+        
+    def forward(self, x):
+        mu = self.mu(x)
+        return mu + self.eps * torch.randn_like(mu)
+
 class prob_mixture_enc(nn.Module):
     def __init__(self, n, m, k=1):
         super(prob_mixture_enc, self).__init__()
